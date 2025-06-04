@@ -1,0 +1,208 @@
+﻿services:
+  # Vector Database para embeddings
+  chroma:
+    image: chromadb/chroma:latest
+    container_name: devops-chroma
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    environment:
+      - CHROMA_SERVER_HOST=0.0.0.0
+      - CHROMA_SERVER_HTTP_PORT=8000
+      - PERSIST_DIRECTORY=/chroma/chroma
+      # 🔧 CONFIGURAÇÕES PARA INDEXAÇÃO MAIS RÁPIDA
+      - CHROMA_SEGMENT_CACHE_POLICY=LRU
+      - CHROMA_SEGMENT_CACHE_SIZE=1000
+      - CHROMA_INDEX_CACHE_SIZE=1000
+      # Forçar flush mais frequente
+      - CHROMA_PERSIST_INTERVAL=10
+      # Configurações HNSW otimizadas
+      - CHROMA_HNSW_SPACE=cosine
+      - CHROMA_HNSW_CONSTRUCTION_EF=100
+      - CHROMA_HNSW_M=16
+    networks:
+      - devops-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 3G  # Aumentei para 3GB
+        reservations:
+          memory: 1G  # Aumentei reserva também
+
+
+  # LLM Local (Ollama) - SEM GPU por enquanto
+  ollama:
+    image: ollama/ollama:latest
+    container_name: devops-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - devops-network
+    restart: unless-stopped
+
+  # Redis para cache
+  redis:
+    image: redis:7-alpine
+    container_name: devops-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - devops-network
+    restart: unless-stopped
+
+  # PostgreSQL para metadados
+  postgres:
+    image: postgres:15-alpine
+    container_name: devops-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: devopsai
+      POSTGRES_USER: devopsai
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devopsai_2024!}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - devops-network
+    restart: unless-stopped
+
+  # Grafana para dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: devops-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin123}
+      - GF_SECURITY_ADMIN_USER=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infrastructure/grafana/dashboards:/etc/grafana/provisioning/dashboards
+    networks:
+      - devops-network
+    restart: unless-stopped
+
+volumes:
+  chroma_data:
+  ollama_data:
+  redis_data:
+  postgres_data:
+  grafana_data:
+
+networks:
+  devops-network:
+    driver: bridge
+
+#version: '3.8'
+#
+#services:
+#  # Vector Database para embeddings
+#  chroma:
+#    image: chromadb/chroma:latest
+#    container_name: devops-chroma
+#    ports:
+#      - "8000:8000"
+#    volumes:
+#      - chroma_data:/chroma/chroma
+#    environment:
+#      - CHROMA_SERVER_HOST=0.0.0.0
+#      - CHROMA_SERVER_HTTP_PORT=8000
+#    networks:
+#      - devops-network
+#    restart: unless-stopped
+#
+#  # LLM Local (Ollama) - COM GPU
+#  ollama:
+#    image: ollama/ollama:latest
+#    container_name: devops-ollama
+#    ports:
+#      - "11434:11434"
+#    volumes:
+#      - ollama_data:/root/.ollama
+#    environment:
+#      - OLLAMA_HOST=0.0.0.0
+#    networks:
+#      - devops-network
+#    restart: unless-stopped
+#    deploy:
+#      resources:
+#        reservations:
+#          devices:
+#            - driver: nvidia
+#              count: 1
+#              capabilities: [gpu]
+#
+#  # Redis para cache
+#  redis:
+#    image: redis:7-alpine
+#    container_name: devops-redis
+#    ports:
+#      - "6379:6379"
+#    volumes:
+#      - redis_data:/data
+#    networks:
+#      - devops-network
+#    restart: unless-stopped
+#
+#  # PostgreSQL para metadados
+#  postgres:
+#    image: postgres:15-alpine
+#    container_name: devops-postgres
+#    ports:
+#      - "5432:5432"
+#    environment:
+#      POSTGRES_DB: devopsai
+#      POSTGRES_USER: devopsai
+#      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devopsai_2024!}
+#    volumes:
+#      - postgres_data:/var/lib/postgresql/data
+#      - ./infrastructure/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+#    networks:
+#      - devops-network
+#    restart: unless-stopped
+#
+#  # Grafana para dashboards
+#  grafana:
+#    image: grafana/grafana:latest
+#    container_name: devops-grafana
+#    ports:
+#      - "3000:3000"
+#    environment:
+#      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin123}
+#      - GF_SECURITY_ADMIN_USER=admin
+#    volumes:
+#      - grafana_data:/var/lib/grafana
+#      - ./infrastructure/grafana/dashboards:/etc/grafana/provisioning/dashboards
+#    networks:
+#      - devops-network
+#    restart: unless-stopped
+#
+#volumes:
+#  chroma_data:
+#  ollama_data:
+#  redis_data:
+#  postgres_data:
+#  grafana_data:
+#
+#networks:
+#  devops-network:
+#    driver: bridge
+
+#services:
+#  ia:
+#    image: ia
+#    build:
+#      context: .
+#      dockerfile: IA/Dockerfile
+
+
+
