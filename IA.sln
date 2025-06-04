@@ -9,6 +9,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IA.WebApi", "IA.WebApi\IA.WebApi.csproj", "{F39D276F-9CCA-44F6-BD39-5D342C49D201}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChromaDb", "ChromaDb\ChromaDb.csproj", "{C40C734A-280D-406D-8CBE-C03522229303}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ResultPattern", "ResultPattern \ResultPattern.csproj", "{D727473A-3055-4048-A09F-1645F2CB0F54}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -19,5 +23,13 @@ Global
 		{F39D276F-9CCA-44F6-BD39-5D342C49D201}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F39D276F-9CCA-44F6-BD39-5D342C49D201}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F39D276F-9CCA-44F6-BD39-5D342C49D201}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C40C734A-280D-406D-8CBE-C03522229303}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C40C734A-280D-406D-8CBE-C03522229303}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C40C734A-280D-406D-8CBE-C03522229303}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C40C734A-280D-406D-8CBE-C03522229303}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D727473A-3055-4048-A09F-1645F2CB0F54}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D727473A-3055-4048-A09F-1645F2CB0F54}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D727473A-3055-4048-A09F-1645F2CB0F54}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D727473A-3055-4048-A09F-1645F2CB0F54}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

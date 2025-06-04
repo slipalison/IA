@@ -1,12 +1,9 @@
 using System.Net.Sockets;
 using System.Text.Json;
-using DotNetEnv;
+using ChromaDb;
 using IA.WebApi.Services;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
-using Microsoft.OpenApi.Models;
-using Serilog;
-using Serilog.Formatting.Json;
 
 namespace IA.WebApi;
 
@@ -136,6 +133,8 @@ public class Program
     {
         services.AddScoped<IChromaService, ChromaService>();
         services.AddScoped<IEmbeddingService, OllamaEmbeddingService>();
+        services.AddHttpClient<IChromaApiClient, ChromaApiClient>(x =>
+            x.BaseAddress = new Uri("http://localhost:8000"));
 
 
         // Obter URLs dos serviços (das variáveis de ambiente)

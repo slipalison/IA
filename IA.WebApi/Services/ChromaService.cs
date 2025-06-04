@@ -1,5 +1,8 @@
 using System.Text;
 using System.Text.Json;
+using ChromaDb;
+using ChromaDb.Requests;
+using ChromaDb.Responses;
 
 namespace IA.WebApi.Services;
 
@@ -9,20 +12,24 @@ public class ChromaService : IChromaService
     private const string TENANT_NAME = "default";
     private const string DATABASE_NAME = "default";
 
+    private readonly IChromaApiClient _apiClient;
+
     // Mapeamento de nomes de coleção para UUIDs
     private readonly Dictionary<string, string> _collectionUuidMap = new();
     private readonly IEmbeddingService _embeddingService; // 🔥 NOVO!
+
     private readonly HttpClient _httpClient;
     private readonly ILogger<ChromaService> _logger;
 
     public ChromaService(
         IHttpClientFactory httpClientFactory,
         ILogger<ChromaService> logger,
-        IEmbeddingService embeddingService) // 🔥 INJEÇÃO!
+        IEmbeddingService embeddingService, IChromaApiClient apiClient) // 🔥 INJEÇÃO!
     {
         _httpClient = httpClientFactory.CreateClient("ChromaClient");
         _logger = logger;
         _embeddingService = embeddingService; // 🔥 NOVO!
+        _apiClient = apiClient;
     }
 
 
@@ -33,42 +40,50 @@ public class ChromaService : IChromaService
             _logger.LogInformation("🔍 [API v2] Verificando se coleção {CollectionName} existe...", collectionName);
 
             // Verificar se temos todas as coleções para ver se esta existe
-            var listResponse =
-                await _httpClient.GetAsync($"/api/v2/tenants/{TENANT_NAME}/databases/{DATABASE_NAME}/collections");
+            // var listResponse =
+            //     await _httpClient.GetAsync($"/api/v2/tenants/{TENANT_NAME}/databases/{DATABASE_NAME}/collections");
 
-            if (listResponse.IsSuccessStatusCode)
+            var listResponse = await _apiClient.ListCollectionsAsync(TENANT_NAME, DATABASE_NAME);
+
+            if (listResponse.IsSuccess)
             {
-                var content = await listResponse.Content.ReadAsStringAsync();
-                _logger.LogInformation("📋 Lista de coleções: {Content}", content);
+                //  var content = await listResponse.Content.ReadAsStringAsync();
+                //_logger.LogInformation("📋 Lista de coleções: {Content}", content);
 
                 try
                 {
                     // 🔧 CORREÇÃO: A resposta é um ARRAY direto, não um objeto com propriedade "collections"
-                    var collectionsArray = JsonSerializer.Deserialize<JsonElement>(content);
+                    //  var collectionsArray = JsonSerializer.Deserialize<JsonElement>(content);
+
+                    if (listResponse.Data.Count > 0 && listResponse.Data.Any(x => x.Id != null))
+                    {
+                        _collectionUuidMap[collectionName] = listResponse.Data.FirstOrDefault()?.Id.ToString();
+                        return true;
+                    }
 
                     // Verificar se é um array
-                    if (collectionsArray.ValueKind == JsonValueKind.Array)
-                    {
-                        foreach (var collection in collectionsArray.EnumerateArray())
-                            if (collection.TryGetProperty("name", out var name) &&
-                                name.GetString() == collectionName)
-                                if (collection.TryGetProperty("id", out var id))
-                                {
-                                    var collectionId = id.GetString();
-                                    if (!string.IsNullOrEmpty(collectionId))
-                                    {
-                                        // Armazenar mapeamento para uso futuro
-                                        _collectionUuidMap[collectionName] = collectionId;
-                                        _logger.LogInformation("✅ Coleção {CollectionName} existe com ID: {UUID}",
-                                            collectionName, collectionId);
-                                        return true;
-                                    }
-                                }
-                    }
-                    else
-                    {
-                        _logger.LogWarning("⚠️ Resposta não é um array. Tipo: {Type}", collectionsArray.ValueKind);
-                    }
+                    // if (collectionsArray.ValueKind == JsonValueKind.Array)
+                    // {
+                    //     foreach (var collection in collectionsArray.EnumerateArray())
+                    //         if (collection.TryGetProperty("name", out var name) &&
+                    //             name.GetString() == collectionName)
+                    //             if (collection.TryGetProperty("id", out var id))
+                    //             {
+                    //                 var collectionId = id.GetString();
+                    //                 if (!string.IsNullOrEmpty(collectionId))
+                    //                 {
+                    //                     // Armazenar mapeamento para uso futuro
+                    //                     _collectionUuidMap[collectionName] = collectionId;
+                    //                     _logger.LogInformation("✅ Coleção {CollectionName} existe com ID: {UUID}",
+                    //                         collectionName, collectionId);
+                    //                     return true;
+                    //                 }
+                    //             }
+                    // }
+                    // else
+                    // {
+                    //     _logger.LogWarning("⚠️ Resposta não é um array. Tipo: {Type}", collectionsArray.ValueKind);
+                    // }
                 }
                 catch (Exception jsonEx)
                 {
@@ -77,9 +92,9 @@ public class ChromaService : IChromaService
             }
             else
             {
-                var errorContent = await listResponse.Content.ReadAsStringAsync();
-                _logger.LogWarning("⚠️ Erro ao listar coleções: {StatusCode} - {Error}",
-                    listResponse.StatusCode, errorContent);
+                // var errorContent = await listResponse.Content.ReadAsStringAsync();
+                // _logger.LogWarning("⚠️ Erro ao listar coleções: {StatusCode} - {Error}",
+                //     listResponse.StatusCode, errorContent);
             }
 
             _logger.LogInformation("📋 Coleção {CollectionName} não existe", collectionName);
@@ -117,62 +132,64 @@ public class ChromaService : IChromaService
             }
 
             // Gerar UUID
-            var collectionUuid = Guid.NewGuid().ToString();
+            // var collectionUuid = Guid.NewGuid().ToString();
 
             // 🔥 PAYLOAD COM DIMENSÃO CORRETA PARA MXBAI-EMBED-LARGE (1024)
-            var payload = new
+            var payload = new CreateCollectionPayload
             {
-                id = collectionUuid,
-                name = collectionName,
-                configuration_json = new
+                //Id = collectionUuid,
+                Name = collectionName,
+                GetOrCreate = true,
+                Configuration = new CollectionConfiguration
                 {
-                    hnsw = new
+                    Hnsw = new HnswConfiguration
                     {
-                        space = "cosine",
-                        ef_construction = 200,
-                        ef_search = 200,
-                        max_neighbors = 16,
-                        resize_factor = 1.2,
-                        sync_threshold = 1000
+                        Space = HnswSpace.Cosine,
+                        EfConstruction = 200,
+                        EfSearch = 200,
+                        MaxNeighbors = 16,
+                        ResizeFactor = 1.2,
+                        SyncThreshold = 1000
                     }
                 },
-                metadata = new
+                Metadata = new Dictionary<string, object>
                 {
-                    description = "DevOps documentation - mxbai-embed-large embeddings",
-                    created_at = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss"),
-                    embedding_model = "mxbai-embed-large",
-                    embedding_dimension = 1024, // 🔥 DOCUMENTAR DIMENSÃO ESPERADA
-                    created_by = "IA.WebApi"
+                    { "description", "DevOps documentation - mxbai-embed-large embeddings" },
+                    { "embedding_model", "mxbai-embed-large" },
+                    { "embedding_dimension", 1024 },
+                    { "created_by", "IA.WebApi" },
+                    { "created_at", DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss") }
                 }
                 // 🔥 NÃO especificar embedding_dimension no configuration_json
                 // Deixar ChromaDB detectar automaticamente baseado no primeiro embedding
             };
 
-            var jsonContent = JsonSerializer.Serialize(payload, new JsonSerializerOptions
+            // var jsonContent = JsonSerializer.Serialize(payload, new JsonSerializerOptions
+            // {
+            //     PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            // });
+
+            _logger.LogInformation("📤 [API v2] Payload criação: {@Payload}", payload);
+
+            //  var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+
+            // var endpoint = $"/api/v2/tenants/{TENANT_NAME}/databases/{DATABASE_NAME}/collections";
+            // var response = await _httpClient.PostAsync(endpoint, content);
+            //var responseContent = await response.Content.ReadAsStringAsync();
+            var response = await _apiClient.CreateCollectionAsync(TENANT_NAME, DATABASE_NAME, payload);
+
+            _logger.LogInformation("📨 Resposta criação: {StatusCode} - {@Response}", response.StatusCode,
+                response.Data);
+
+            if (response.IsSuccess)
             {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-            });
-
-            _logger.LogInformation("📤 [API v2] Payload criação: {Payload}", jsonContent);
-
-            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
-
-            var endpoint = $"/api/v2/tenants/{TENANT_NAME}/databases/{DATABASE_NAME}/collections";
-            var response = await _httpClient.PostAsync(endpoint, content);
-            var responseContent = await response.Content.ReadAsStringAsync();
-
-            _logger.LogInformation("📨 Resposta criação: {StatusCode} - {Response}",
-                response.StatusCode, responseContent);
-
-            if (response.IsSuccessStatusCode)
-            {
-                _collectionUuidMap[collectionName] = collectionUuid;
+                _collectionUuidMap[collectionName] = response.Data.Id.ToString();
                 _logger.LogInformation("✅ Coleção {CollectionName} criada para embeddings 1024D!", collectionName);
                 return true;
             }
 
-            _logger.LogError("❌ Erro ao criar coleção: {StatusCode} - {Error}",
-                response.StatusCode, responseContent);
+            _logger.LogError("❌ Erro ao criar coleção: {StatusCode} - {@Error}",
+                response.StatusCode, response.Error);
             return false;
         }
         catch (Exception ex)
@@ -231,8 +248,8 @@ public class ChromaService : IChromaService
                 return false;
             }
 
-            _logger.LogInformation("✅ Todos os {Count} embeddings têm {Dimension} dimensões",
-                embeddings.Count, expectedDimension);
+            _logger.LogInformation("✅ Todos os {Count} embeddings têm {Dimension} dimensões", embeddings.Count,
+                expectedDimension);
 
             // Adicionar metadados
             var batchId = Guid.NewGuid().ToString();
@@ -246,24 +263,28 @@ public class ChromaService : IChromaService
             }
 
             // 🔥 PAYLOAD COM EMBEDDINGS VALIDADOS
-            var payload = new
+            var payload = new AddCollectionRecordsPayload
             {
-                ids = documents.Select(d => d.Id).ToArray(),
-                documents = documents.Select(d => d.Content).ToArray(),
-                metadatas = documents.Select(d => d.Metadata).ToArray(),
-                embeddings = embeddings.ToArray()
+                Ids = documents.Select(d => d.Id).ToList(),
+                Documents = documents.Select(d => d.Content).ToList(),
+                Metadatas = documents.Select(d => d.Metadata).ToList(),
+                Embeddings = embeddings.Select(x => x.ToList()).ToList()
             };
 
-            var jsonContent = JsonSerializer.Serialize(payload);
-            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+            // var jsonContent = JsonSerializer.Serialize(payload);
+            // var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+            //
+            // var endpoint = $"/api/v2/tenants/{TENANT_NAME}/databases/{DATABASE_NAME}/collections/{collectionUuid}/add";
+            // var response = await _httpClient.PostAsync(endpoint, content);
+            // var responseContent = await response.Content.ReadAsStringAsync();
 
-            var endpoint = $"/api/v2/tenants/{TENANT_NAME}/databases/{DATABASE_NAME}/collections/{collectionUuid}/add";
-            var response = await _httpClient.PostAsync(endpoint, content);
-            var responseContent = await response.Content.ReadAsStringAsync();
+            var response =
+                await _apiClient.AddRecordsAsync(TENANT_NAME, DATABASE_NAME, collectionUuid, payload);
 
-            _logger.LogInformation("📨 Resposta ADD: {StatusCode} - {Response}", response.StatusCode, responseContent);
+            _logger.LogInformation("📨 Resposta ADD: {StatusCode} - {@Response}", response.StatusCode,
+                response.IsSuccess ? response.Data : response.Error);
 
-            if (response.IsSuccessStatusCode)
+            if (response.IsSuccess)
             {
                 _logger.LogInformation("✅ Documentos COM EMBEDDINGS 1024D aceitos!");
 
@@ -280,8 +301,8 @@ public class ChromaService : IChromaService
                 return true;
             }
 
-            _logger.LogError("❌ Erro ao adicionar documentos: {StatusCode} - {Error}",
-                response.StatusCode, responseContent);
+            _logger.LogError("❌ Erro ao adicionar documentos: {StatusCode} - {@Error}",
+                response.StatusCode, response.Error);
             return false;
         }
         catch (Exception ex)
@@ -321,39 +342,59 @@ public class ChromaService : IChromaService
             }
 
             // Payload da query
-            var payload = new
+            var payload = new QueryRequestPayload
             {
-                query_embeddings = new[] { queryEmbedding },
-                n_results = limit * 2, // Buscar mais para filtrar duplicados
-                include = new[] { "documents", "metadatas", "distances" }
+                QueryEmbeddings = new[] { queryEmbedding.ToList() }.ToList(),
+                NResults = limit * 2, // Buscar mais para filtrar duplicados
+                Includes = new List<Include>
+                {
+                    Include.Documents,
+                    Include.Metadatas,
+                    Include.Distances
+                }
             };
 
-            var jsonContent = JsonSerializer.Serialize(payload);
-            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+            // var jsonContent = JsonSerializer.Serialize(payload);
+            // var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+            //
+            // var endpoint =
+            //     $"/api/v2/tenants/{TENANT_NAME}/databases/{DATABASE_NAME}/collections/{collectionUuid}/query";
+            // var response = await _httpClient.PostAsync(endpoint, content);
+            // var responseContent = await response.Content.ReadAsStringAsync();
 
-            var endpoint =
-                $"/api/v2/tenants/{TENANT_NAME}/databases/{DATABASE_NAME}/collections/{collectionUuid}/query";
-            var response = await _httpClient.PostAsync(endpoint, content);
-            var responseContent = await response.Content.ReadAsStringAsync();
-
+            var response = await _apiClient.QueryCollectionAsync(TENANT_NAME, DATABASE_NAME,
+                collectionUuid, payload);
             _logger.LogInformation("📨 Resposta query: {StatusCode}", response.StatusCode);
 
-            if (response.IsSuccessStatusCode)
+            if (response.IsSuccess)
             {
                 // 🔥 DESERIALIZAR COM ESTRUTURA CORRETA
-                var result = JsonSerializer.Deserialize<ChromaQueryResponse>(responseContent, new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                });
+                // var result = JsonSerializer.Deserialize<ChromaQueryResponse>(responseContent, new JsonSerializerOptions
+                // {
+                //     PropertyNameCaseInsensitive = true
+                // });
 
                 // 🔄 CONVERTER PARA DocumentChunk
-                var documents = ConvertToDocumentChunks(result, limit);
+
+                //response.Data
+
+                var r = new ChromaQueryResponse
+                {
+                    Distances = response.Data.Distances,
+                    Documents = response.Data.Documents,
+                    Metadatas = response.Data.Metadatas,
+                    Embeddings = response.Data.Embeddings,
+                    Ids = response.Data.Ids,
+                    Include = response.Data.Include.Select(x => x.ToString()).ToList(),
+                    Uris = response.Data.Uris
+                };
+                var documents = ConvertToDocumentChunks(r, limit);
 
                 _logger.LogInformation("✅ Convertidos {Count} documentos", documents.Count);
                 return documents;
             }
 
-            _logger.LogWarning("⚠️ Erro na busca: {StatusCode} - {Error}", response.StatusCode, responseContent);
+            _logger.LogWarning("⚠️ Erro na busca: {StatusCode} - {@Error}", response.StatusCode, response.Error);
             return new List<DocumentChunk>();
         }
         catch (Exception ex)
@@ -390,10 +431,12 @@ public class ChromaService : IChromaService
                 collectionUuid, collectionName);
 
             // 2. API v2 - Delete usando UUID
-            var endpoint = $"/api/v2/tenants/{TENANT_NAME}/databases/{DATABASE_NAME}/collections/{collectionUuid}";
-            var response = await _httpClient.DeleteAsync(endpoint);
+            // var endpoint = $"/api/v2/tenants/{TENANT_NAME}/databases/{DATABASE_NAME}/collections/{collectionUuid}";
+            // var response = await _httpClient.DeleteAsync(endpoint);
 
-            if (response.IsSuccessStatusCode)
+            var response = await _apiClient.DeleteCollectionAsync(TENANT_NAME, DATABASE_NAME, collectionUuid);
+
+            if (response.IsSuccess)
             {
                 _logger.LogInformation("✅ [API v2] Coleção {CollectionName} (UUID: {UUID}) deletada",
                     collectionName, collectionUuid);
@@ -403,9 +446,9 @@ public class ChromaService : IChromaService
                 return true;
             }
 
-            var errorContent = await response.Content.ReadAsStringAsync();
-            _logger.LogError("❌ [API v2] Erro ao deletar coleção: {StatusCode} - {Error}",
-                response.StatusCode, errorContent);
+            // var errorContent = await response.Content.ReadAsStringAsync();
+            _logger.LogError("❌ [API v2] Erro ao deletar coleção: {StatusCode} - {@Error}",
+                response.StatusCode, response.Error);
             return false;
         }
         catch (Exception ex)
@@ -469,21 +512,24 @@ public class ChromaService : IChromaService
         {
             _logger.LogInformation("🔍 Verificando se tenant '{TenantName}' existe...", tenantName);
 
-            var response = await _httpClient.GetAsync("/api/v2/tenants");
-            if (response.IsSuccessStatusCode)
+            var response = await _apiClient.GetTenantAsync(tenantName);
+            //var response = await _httpClient.GetAsync("/api/v2/tenants");
+            if (response.IsSuccess)
             {
-                var content = await response.Content.ReadAsStringAsync();
-                _logger.LogInformation("📋 Tenants disponíveis: {Content}", content);
+                //var content = await response.Content.ReadAsStringAsync();
+                _logger.LogInformation("📋 Tenants disponíveis: {@Content}", response.Data);
 
-                var tenants = JsonSerializer.Deserialize<JsonElement>(content);
-                if (tenants.ValueKind == JsonValueKind.Array)
-                    foreach (var tenant in tenants.EnumerateArray())
-                        if (tenant.TryGetProperty("name", out var name) &&
-                            name.GetString() == tenantName)
-                        {
-                            _logger.LogInformation("✅ Tenant '{TenantName}' existe", tenantName);
-                            return true;
-                        }
+                //   var tenants = JsonSerializer.Deserialize<JsonElement>(content);
+                // if (tenants.ValueKind == JsonValueKind.Array)
+                //     foreach (var tenant in tenants.EnumerateArray())
+                //         if (tenant.TryGetProperty("name", out var name) &&
+                //             name.GetString() == tenantName)
+                //         {
+                //             _logger.LogInformation("✅ Tenant '{TenantName}' existe", tenantName);
+                //             return true;
+                //         }
+                _logger.LogInformation("✅ Tenant '{TenantName}' existe", response.Data.Name);
+                return true;
             }
 
             _logger.LogInformation("📋 Tenant '{TenantName}' não encontrado", tenantName);
@@ -652,8 +698,8 @@ public class ChromaService : IChromaService
         // 🔥 ACESSAR PRIMEIRO ARRAY (PRIMEIRA QUERY)
         var ids = result.Ids?[0] ?? new List<string>();
         var docs = result.Documents[0];
-        var metadatas = result.Metadatas?[0] ?? new List<Metadata>();
-        var distances = result.Distances?[0] ?? new List<double>();
+        var metadatas = result?.Metadatas?[0] ?? new List<Metadata>();
+        var distances = result?.Distances.FirstOrDefault() ?? new List<double>();
 
         var seenTitles = new HashSet<string>(); // Para filtrar duplicados
 

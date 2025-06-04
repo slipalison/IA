@@ -42,6 +42,7 @@ docker exec devops-ollama ollama pull llama2:7b
 echo "  📥 Baixando CodeLlama 7B (para código)..."
 docker exec devops-ollama ollama pull codellama:7b
 
+echo "  📥 Baixando xbai-embed-large (para embed)..."
 docker exec devops-ollama ollama pull mxbai-embed-large
 
 

@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <RootNamespace>ResultPattern</RootNamespace>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Reference Include="Flurl">
+            <HintPath>..\..\..\.nuget\packages\flurl\4.0.0\lib\netstandard2.0\Flurl.dll</HintPath>
+        </Reference>
+        <Reference Include="Flurl.Http">
+            <HintPath>..\..\..\.nuget\packages\flurl.http\4.0.2\lib\net6.0\Flurl.Http.dll</HintPath>
+        </Reference>
+    </ItemGroup>
+
+</Project>

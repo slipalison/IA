@@ -55,5 +55,9 @@
         <Folder Include="logs\"/>
     </ItemGroup>
 
+    <ItemGroup>
+        <ProjectReference Include="..\ChromaDb\ChromaDb.csproj"/>
+    </ItemGroup>
+
 
 </Project>

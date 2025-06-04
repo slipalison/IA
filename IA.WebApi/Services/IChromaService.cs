@@ -1,4 +1,4 @@
-using Newtonsoft.Json;
+using ChromaDb.Responses;
 
 namespace IA.WebApi.Services;
 
@@ -211,7 +211,7 @@ public interface IChromaService
 
 public class DocumentChunk
 {
-    public string Id { get; set; } = Guid.NewGuid().ToString();
+    public string Id { get; set; } //= Guid.NewGuid().ToString();
     public string Content { get; set; } = string.Empty;
     public Dictionary<string, object> Metadata { get; set; } = new();
     public double Distance { get; set; }
@@ -220,7 +220,7 @@ public class DocumentChunk
 public class ChromaQueryResponse
 
 {
-    [JsonProperty("distances")] public List<List<double>> Distances { get; set; }
+    [JsonProperty("distances")] public List<List<double>>? Distances { get; set; }
 
     [JsonProperty("documents")] public List<List<string>> Documents { get; set; }
 
@@ -233,23 +233,6 @@ public class ChromaQueryResponse
     [JsonProperty("metadatas")] public List<List<Metadata>>? Metadatas { get; set; }
 
     [JsonProperty("uris")] public List<List<string>> Uris { get; set; }
-}
-
-public class Metadata
-{
-    [JsonProperty("embedding_dimension")] public int EmbeddingDimension { get; set; }
-
-    [JsonProperty("added_at")] public string AddedAt { get; set; }
-
-    [JsonProperty("added_by")] public string AddedBy { get; set; }
-
-    [JsonProperty("embedding_model")] public string EmbeddingModel { get; set; }
-
-    [JsonProperty("batch_id")] public string BatchId { get; set; }
-
-    [JsonProperty("title")] public string Title { get; set; }
-
-    [JsonProperty("category")] public string Category { get; set; }
 }
 
 // public class ChromaQueryResponse
