@@ -1,9 +1,13 @@
 using System.Net.Sockets;
 using System.Text.Json;
 using ChromaDb;
+using DotNetEnv;
 using IA.WebApi.Services;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.OpenApi.Models;
+using Serilog;
+using Serilog.Formatting.Json;
 
 namespace IA.WebApi;
 

@@ -1,5 +1,6 @@
 using ChromaDb.Requests;
 using ChromaDb.Responses;
+using Flurl.Http;
 using ResultPattern;
 
 namespace ChromaDb;

@@ -1,4 +1,5 @@
 using ChromaDb.Responses;
+using Newtonsoft.Json;
 
 namespace IA.WebApi.Services;
 
