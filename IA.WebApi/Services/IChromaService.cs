@@ -14,10 +14,10 @@ public interface IChromaService
 
 public class DocumentChunk
 {
-    public string Id { get; set; } //= Guid.NewGuid().ToString();
-    public string Content { get; set; } = string.Empty;
-    public Dictionary<string, object> Metadata { get; set; } = new();
-    public double Distance { get; set; }
+    public string? Id { get; set; } //= Guid.NewGuid().ToString();
+    public string? Content { get; set; } = string.Empty;
+    public Dictionary<string, object>? Metadata { get; set; } = new();
+    public double? Distance { get; set; }
 }
 
 public class ChromaQueryResponse

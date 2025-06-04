@@ -117,7 +117,7 @@ public class DocumentationController : ControllerBase
                 {
                     category = d.Metadata.GetValueOrDefault("category", "geral"),
                     title = d.Metadata.GetValueOrDefault("title", "Documento"),
-                    relevance = Math.Round((1 - d.Distance) * 100, 1)
+                    relevance = Math.Round((1 - d.Distance ?? 0) * 100, 1)
                 }),
                 foundDocuments = similarDocs.Count,
                 timestamp = DateTime.UtcNow

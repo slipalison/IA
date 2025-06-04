@@ -379,7 +379,7 @@ public class ChromaService : IChromaService
     {
         return new AddCollectionRecordsPayload
         {
-            Ids = documents.Select(d => d.Id).ToList(),
+            Ids = documents.Select(d => d.Id ?? Guid.NewGuid().ToString()).ToList(),
             Documents = documents.Select(d => d.Content).ToList(),
             Metadatas = documents.Select(d => d.Metadata).ToList(),
             Embeddings = embeddings.Select(x => x.ToList()).ToList()

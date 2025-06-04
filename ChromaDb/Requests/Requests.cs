@@ -6,17 +6,18 @@ namespace ChromaDb.Requests;
 // Request Models
 public class CreateTenantPayload
 {
-    public string Name { get; set; } = string.Empty;
+    [JsonPropertyName("name")] public string Name { get; set; } = string.Empty;
 }
 
 public class CreateDatabasePayload
 {
-    public string Name { get; set; } = string.Empty;
+    [JsonPropertyName("name")] public string Name { get; set; } = string.Empty;
 }
 
 public class CreateCollectionPayload
 {
-    public string Name { get; set; } = string.Empty;
+    [JsonPropertyName("name")] public string Name { get; set; } = string.Empty;
+
     public bool GetOrCreate { get; set; }
     public Dictionary<string, object>? Metadata { get; set; }
     public CollectionConfiguration? Configuration { get; set; }
@@ -36,11 +37,15 @@ public class ForkCollectionPayload
 
 public class AddCollectionRecordsPayload
 {
-    public List<string> Ids { get; set; } = new();
-    public List<string?>? Documents { get; set; }
-    public List<List<float>>? Embeddings { get; set; }
-    public List<Dictionary<string, object>?>? Metadatas { get; set; }
-    public List<string?>? Uris { get; set; }
+    [JsonPropertyName("ids")] public List<string>? Ids { get; set; } = new();
+
+    [JsonPropertyName("documents")] public List<string?>? Documents { get; set; }
+
+    [JsonPropertyName("embeddings")] public List<List<float>>? Embeddings { get; set; }
+
+    [JsonPropertyName("metadatas")] public List<Dictionary<string, object>?>? Metadatas { get; set; }
+
+    [JsonPropertyName("uris")] public List<string?>? Uris { get; set; }
 }
 
 public class UpdateCollectionRecordsPayload
