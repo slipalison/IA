@@ -1,0 +1,61 @@
+# .gitignore para projetos C# usando Rider
+
+## Diretórios e arquivos do Rider
+.idea/
+*.sln.iml
+
+## Arquivos de build do .NET
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## Configurações específicas do sistema
+*.DS_Store
+*.vscode/
+*.vs/
+
+## Logs e dados temporários
+*.log
+*.tmp
+
+## Arquivos de pacotes NuGet
+*.nupkg
+*.snupkg
+*.nuspec
+packages/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+## Diretórios de testes e cobertura
+TestResults/
+*.coverage
+*.coveragexml
+*.testresults
+*.trx
+
+## Arquivos de publicação
+publish/
+out/
+
+## Arquivos de cache do Rider
+.idea/.idea/
+.idea/.idea_modules/
+.idea/modules.xml
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/dictionaries
+.idea/httpRequests/
+
+## Arquivos de cache do ReSharper (se usado com Rider)
+_ReSharper*/
+*.DotSettings.user
+
+## Outros
+*.dbmdl
+*.bak
+*.orig
+
