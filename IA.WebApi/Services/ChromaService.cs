@@ -1,5 +1,3 @@
-using System.Text;
-using System.Text.Json;
 using ChromaDb;
 using ChromaDb.Requests;
 using ChromaDb.Responses;
@@ -18,7 +16,7 @@ public class ChromaService : IChromaService
     private readonly Dictionary<string, string> _collectionUuidMap = new();
     private readonly IEmbeddingService _embeddingService; // 🔥 NOVO!
 
-    private readonly HttpClient _httpClient;
+    // private readonly HttpClient _httpClient;
     private readonly ILogger<ChromaService> _logger;
 
     public ChromaService(
@@ -26,7 +24,7 @@ public class ChromaService : IChromaService
         ILogger<ChromaService> logger,
         IEmbeddingService embeddingService, IChromaApiClient apiClient) // 🔥 INJEÇÃO!
     {
-        _httpClient = httpClientFactory.CreateClient("ChromaClient");
+        //_httpClient = httpClientFactory.CreateClient("ChromaClient");
         _logger = logger;
         _embeddingService = embeddingService; // 🔥 NOVO!
         _apiClient = apiClient;
@@ -39,63 +37,23 @@ public class ChromaService : IChromaService
         {
             _logger.LogInformation("🔍 [API v2] Verificando se coleção {CollectionName} existe...", collectionName);
 
-            // Verificar se temos todas as coleções para ver se esta existe
-            // var listResponse =
-            //     await _httpClient.GetAsync($"/api/v2/tenants/{TENANT_NAME}/databases/{DATABASE_NAME}/collections");
-
             var listResponse = await _apiClient.ListCollectionsAsync(TENANT_NAME, DATABASE_NAME);
-
             if (listResponse.IsSuccess)
             {
-                //  var content = await listResponse.Content.ReadAsStringAsync();
-                //_logger.LogInformation("📋 Lista de coleções: {Content}", content);
-
                 try
                 {
-                    // 🔧 CORREÇÃO: A resposta é um ARRAY direto, não um objeto com propriedade "collections"
-                    //  var collectionsArray = JsonSerializer.Deserialize<JsonElement>(content);
-
                     if (listResponse.Data.Count > 0 && listResponse.Data.Any(x => x.Id != null))
                     {
                         _collectionUuidMap[collectionName] = listResponse.Data.FirstOrDefault()?.Id.ToString();
                         return true;
                     }
-
-                    // Verificar se é um array
-                    // if (collectionsArray.ValueKind == JsonValueKind.Array)
-                    // {
-                    //     foreach (var collection in collectionsArray.EnumerateArray())
-                    //         if (collection.TryGetProperty("name", out var name) &&
-                    //             name.GetString() == collectionName)
-                    //             if (collection.TryGetProperty("id", out var id))
-                    //             {
-                    //                 var collectionId = id.GetString();
-                    //                 if (!string.IsNullOrEmpty(collectionId))
-                    //                 {
-                    //                     // Armazenar mapeamento para uso futuro
-                    //                     _collectionUuidMap[collectionName] = collectionId;
-                    //                     _logger.LogInformation("✅ Coleção {CollectionName} existe com ID: {UUID}",
-                    //                         collectionName, collectionId);
-                    //                     return true;
-                    //                 }
-                    //             }
-                    // }
-                    // else
-                    // {
-                    //     _logger.LogWarning("⚠️ Resposta não é um array. Tipo: {Type}", collectionsArray.ValueKind);
-                    // }
                 }
                 catch (Exception jsonEx)
                 {
                     _logger.LogError(jsonEx, "❌ Erro ao processar JSON de coleções: {Error}", jsonEx.Message);
                 }
             }
-            else
-            {
-                // var errorContent = await listResponse.Content.ReadAsStringAsync();
-                // _logger.LogWarning("⚠️ Erro ao listar coleções: {StatusCode} - {Error}",
-                //     listResponse.StatusCode, errorContent);
-            }
+
 
             _logger.LogInformation("📋 Coleção {CollectionName} não existe", collectionName);
             return false;
@@ -131,9 +89,6 @@ public class ChromaService : IChromaService
                 return true;
             }
 
-            // Gerar UUID
-            // var collectionUuid = Guid.NewGuid().ToString();
-
             // 🔥 PAYLOAD COM DIMENSÃO CORRETA PARA MXBAI-EMBED-LARGE (1024)
             var payload = new CreateCollectionPayload
             {
@@ -164,18 +119,8 @@ public class ChromaService : IChromaService
                 // Deixar ChromaDB detectar automaticamente baseado no primeiro embedding
             };
 
-            // var jsonContent = JsonSerializer.Serialize(payload, new JsonSerializerOptions
-            // {
-            //     PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-            // });
-
             _logger.LogInformation("📤 [API v2] Payload criação: {@Payload}", payload);
 
-            //  var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
-
-            // var endpoint = $"/api/v2/tenants/{TENANT_NAME}/databases/{DATABASE_NAME}/collections";
-            // var response = await _httpClient.PostAsync(endpoint, content);
-            //var responseContent = await response.Content.ReadAsStringAsync();
             var response = await _apiClient.CreateCollectionAsync(TENANT_NAME, DATABASE_NAME, payload);
 
             _logger.LogInformation("📨 Resposta criação: {StatusCode} - {@Response}", response.StatusCode,
@@ -271,13 +216,6 @@ public class ChromaService : IChromaService
                 Embeddings = embeddings.Select(x => x.ToList()).ToList()
             };
 
-            // var jsonContent = JsonSerializer.Serialize(payload);
-            // var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
-            //
-            // var endpoint = $"/api/v2/tenants/{TENANT_NAME}/databases/{DATABASE_NAME}/collections/{collectionUuid}/add";
-            // var response = await _httpClient.PostAsync(endpoint, content);
-            // var responseContent = await response.Content.ReadAsStringAsync();
-
             var response =
                 await _apiClient.AddRecordsAsync(TENANT_NAME, DATABASE_NAME, collectionUuid, payload);
 
@@ -354,30 +292,12 @@ public class ChromaService : IChromaService
                 }
             };
 
-            // var jsonContent = JsonSerializer.Serialize(payload);
-            // var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
-            //
-            // var endpoint =
-            //     $"/api/v2/tenants/{TENANT_NAME}/databases/{DATABASE_NAME}/collections/{collectionUuid}/query";
-            // var response = await _httpClient.PostAsync(endpoint, content);
-            // var responseContent = await response.Content.ReadAsStringAsync();
-
             var response = await _apiClient.QueryCollectionAsync(TENANT_NAME, DATABASE_NAME,
                 collectionUuid, payload);
             _logger.LogInformation("📨 Resposta query: {StatusCode}", response.StatusCode);
 
             if (response.IsSuccess)
             {
-                // 🔥 DESERIALIZAR COM ESTRUTURA CORRETA
-                // var result = JsonSerializer.Deserialize<ChromaQueryResponse>(responseContent, new JsonSerializerOptions
-                // {
-                //     PropertyNameCaseInsensitive = true
-                // });
-
-                // 🔄 CONVERTER PARA DocumentChunk
-
-                //response.Data
-
                 var r = new ChromaQueryResponse
                 {
                     Distances = response.Data.Distances,
@@ -431,8 +351,6 @@ public class ChromaService : IChromaService
                 collectionUuid, collectionName);
 
             // 2. API v2 - Delete usando UUID
-            // var endpoint = $"/api/v2/tenants/{TENANT_NAME}/databases/{DATABASE_NAME}/collections/{collectionUuid}";
-            // var response = await _httpClient.DeleteAsync(endpoint);
 
             var response = await _apiClient.DeleteCollectionAsync(TENANT_NAME, DATABASE_NAME, collectionUuid);
 
@@ -516,18 +434,7 @@ public class ChromaService : IChromaService
             //var response = await _httpClient.GetAsync("/api/v2/tenants");
             if (response.IsSuccess)
             {
-                //var content = await response.Content.ReadAsStringAsync();
                 _logger.LogInformation("📋 Tenants disponíveis: {@Content}", response.Data);
-
-                //   var tenants = JsonSerializer.Deserialize<JsonElement>(content);
-                // if (tenants.ValueKind == JsonValueKind.Array)
-                //     foreach (var tenant in tenants.EnumerateArray())
-                //         if (tenant.TryGetProperty("name", out var name) &&
-                //             name.GetString() == tenantName)
-                //         {
-                //             _logger.LogInformation("✅ Tenant '{TenantName}' existe", tenantName);
-                //             return true;
-                //         }
                 _logger.LogInformation("✅ Tenant '{TenantName}' existe", response.Data.Name);
                 return true;
             }
@@ -551,35 +458,43 @@ public class ChromaService : IChromaService
         {
             _logger.LogInformation("🚀 Criando tenant '{TenantName}'...", tenantName);
 
-            var payload = new
+            // var payload = new
+            // {
+            //     name = tenantName
+            // };
+            //
+            // var jsonContent = JsonSerializer.Serialize(payload);
+            // var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+            //
+            //
+            // var response = await _httpClient.PostAsync("/api/v2/tenants", content);
+            // var responseContent = await response.Content.ReadAsStringAsync();
+
+            var response = await _apiClient.CreateTenantAsync(new CreateTenantPayload
             {
-                name = tenantName
-            };
+                Name = tenantName
+            });
 
-            var jsonContent = JsonSerializer.Serialize(payload);
-            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
 
-            var response = await _httpClient.PostAsync("/api/v2/tenants", content);
-            var responseContent = await response.Content.ReadAsStringAsync();
+            _logger.LogInformation("📨 Resposta criação tenant: {StatusCode} - {@Response}",
+                response.StatusCode, response.IsSuccess ? response.Data : response.Error);
+            ;
 
-            _logger.LogInformation("📨 Resposta criação tenant: {StatusCode} - {Response}",
-                response.StatusCode, responseContent);
-
-            if (response.IsSuccessStatusCode)
+            if (response.IsSuccess)
             {
                 _logger.LogInformation("✅ Tenant '{TenantName}' criado com sucesso!", tenantName);
                 return true;
             }
 
             // Verificar se o erro é "já existe" (pode ser aceitável)
-            if (responseContent.Contains("already exists") || responseContent.Contains("Conflict"))
+            if (response.Error.Message.Contains("already exists") || response.Error.Message.Contains("Conflict"))
             {
                 _logger.LogInformation("✅ Tenant '{TenantName}' já existe (detectado pelo erro)", tenantName);
                 return true;
             }
 
-            _logger.LogError("❌ Erro ao criar tenant '{TenantName}': {StatusCode} - {Error}",
-                tenantName, response.StatusCode, responseContent);
+            _logger.LogError("❌ Erro ao criar tenant '{TenantName}': {StatusCode} - {@Error}",
+                tenantName, response.StatusCode, response.Error);
             return false;
         }
         catch (Exception ex)
@@ -599,22 +514,17 @@ public class ChromaService : IChromaService
             _logger.LogInformation("🔍 Verificando se database '{DatabaseName}' existe no tenant '{TenantName}'...",
                 databaseName, tenantName);
 
-            var response = await _httpClient.GetAsync($"/api/v2/tenants/{tenantName}/databases");
-            if (response.IsSuccessStatusCode)
+            var response = await _apiClient.ListDatabasesAsync(tenantName);
+            if (response.IsSuccess)
             {
-                var content = await response.Content.ReadAsStringAsync();
-                _logger.LogInformation("📋 Databases no tenant '{TenantName}': {Content}", tenantName, content);
-
-                var databases = JsonSerializer.Deserialize<JsonElement>(content);
-                if (databases.ValueKind == JsonValueKind.Array)
-                    foreach (var database in databases.EnumerateArray())
-                        if (database.TryGetProperty("name", out var name) &&
-                            name.GetString() == databaseName)
-                        {
-                            _logger.LogInformation("✅ Database '{DatabaseName}' existe no tenant '{TenantName}'",
-                                databaseName, tenantName);
-                            return true;
-                        }
+                //var content = await response.Content.ReadAsStringAsync();
+                _logger.LogInformation("📋 Databases no tenant '{TenantName}': {@Content}", tenantName, response.Data);
+                if (response.Data.Any(x => x.Name == databaseName))
+                {
+                    _logger.LogInformation("✅ Database '{DatabaseName}' existe no tenant '{TenantName}'",
+                        databaseName, tenantName);
+                    return true;
+                }
             }
 
             _logger.LogInformation("📋 Database '{DatabaseName}' não encontrado no tenant '{TenantName}'",
@@ -639,21 +549,15 @@ public class ChromaService : IChromaService
             _logger.LogInformation("🚀 Criando database '{DatabaseName}' no tenant '{TenantName}'...",
                 databaseName, tenantName);
 
-            var payload = new
+            var response = await _apiClient.CreateDatabaseAsync(tenantName, new CreateDatabasePayload
             {
-                name = databaseName
-            };
+                Name = databaseName
+            });
 
-            var jsonContent = JsonSerializer.Serialize(payload);
-            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+            _logger.LogInformation("📨 Resposta criação database: {StatusCode} - {@Response}",
+                response.StatusCode, response.Data);
 
-            var response = await _httpClient.PostAsync($"/api/v2/tenants/{tenantName}/databases", content);
-            var responseContent = await response.Content.ReadAsStringAsync();
-
-            _logger.LogInformation("📨 Resposta criação database: {StatusCode} - {Response}",
-                response.StatusCode, responseContent);
-
-            if (response.IsSuccessStatusCode)
+            if (response.IsSuccess)
             {
                 _logger.LogInformation("✅ Database '{DatabaseName}' criado com sucesso no tenant '{TenantName}'!",
                     databaseName, tenantName);
@@ -661,7 +565,7 @@ public class ChromaService : IChromaService
             }
 
             // Verificar se o erro é "já existe" (pode ser aceitável)
-            if (responseContent.Contains("already exists") || responseContent.Contains("Conflict"))
+            if (response.Error.Message.Contains("already exists") || response.Error.Message.Contains("Conflict"))
             {
                 _logger.LogInformation(
                     "✅ Database '{DatabaseName}' já existe no tenant '{TenantName}' (detectado pelo erro)",
@@ -670,8 +574,8 @@ public class ChromaService : IChromaService
             }
 
             _logger.LogError(
-                "❌ Erro ao criar database '{DatabaseName}' no tenant '{TenantName}': {StatusCode} - {Error}",
-                databaseName, tenantName, response.StatusCode, responseContent);
+                "❌ Erro ao criar database '{DatabaseName}' no tenant '{TenantName}': {StatusCode} - {@Error}",
+                databaseName, tenantName, response.StatusCode, response.Error);
             return false;
         }
         catch (Exception ex)
@@ -845,28 +749,13 @@ public class ChromaService : IChromaService
     /// <summary>
     ///     Obtém o count atual da coleção
     /// </summary>
-    private async Task<int> GetCollectionCountAsync(string collectionUuid)
+    private async Task<uint> GetCollectionCountAsync(string collectionUuid)
     {
         try
         {
-            var countPayload = new { };
-            var countContent = new StringContent(
-                JsonSerializer.Serialize(countPayload),
-                Encoding.UTF8,
-                "application/json"
-            );
+            var countResponse = await _apiClient.CountRecordsAsync(TENANT_NAME, DATABASE_NAME, collectionUuid);
 
-            var countEndpoint =
-                $"/api/v2/tenants/{TENANT_NAME}/databases/{DATABASE_NAME}/collections/{collectionUuid}/count";
-            var countResponse = await _httpClient.GetAsync(countEndpoint);
-
-            if (countResponse.IsSuccessStatusCode)
-            {
-                var countResult = await countResponse.Content.ReadAsStringAsync();
-                if (int.TryParse(countResult, out var count)) return count;
-            }
-
-            return 0;
+            return countResponse.IsSuccess ? countResponse.Data : 0;
         }
         catch
         {
@@ -874,80 +763,9 @@ public class ChromaService : IChromaService
         }
     }
 
-    /// <summary>
-    ///     Verifica se documentos específicos do batch foram indexados
-    /// </summary>
-    private async Task<bool> VerifyDocumentsByBatchAsync(string collectionUuid, string batchId)
-    {
-        try
-        {
-            _logger.LogInformation("🔍 Verificando documentos do batch: {BatchId}", batchId);
-
-            // 🔥 GERAR EMBEDDING PARA QUERY GENÉRICA
-            var queryText = "DevOps Docker container"; // Texto genérico relacionado ao conteúdo
-            var queryEmbedding = await _embeddingService.GenerateEmbeddingAsync(queryText);
-
-            if (queryEmbedding.Length == 0)
-            {
-                _logger.LogWarning("⚠️ Não foi possível gerar embedding para verificação");
-                return true; // Assumir sucesso se não conseguir verificar
-            }
-
-            // 🔥 PAYLOAD CORRETO PARA API v2
-            var queryPayload = new
-            {
-                query_embeddings = new[] { queryEmbedding },
-                n_results = 50, // Buscar mais documentos para garantir que encontremos nosso batch
-                include = new[] { "metadatas" },
-                where = new { batch_id = batchId } // Filtro por batch
-            };
-
-            var queryContent = new StringContent(
-                JsonSerializer.Serialize(queryPayload),
-                Encoding.UTF8,
-                "application/json"
-            );
-
-            var queryEndpoint =
-                $"/api/v2/tenants/{TENANT_NAME}/databases/{DATABASE_NAME}/collections/{collectionUuid}/query";
-            var queryResponse = await _httpClient.PostAsync(queryEndpoint, queryContent);
-            var responseContent = await queryResponse.Content.ReadAsStringAsync();
-
-            _logger.LogInformation("📨 Verificação batch: {StatusCode} - {Response}",
-                queryResponse.StatusCode, responseContent);
-
-            if (queryResponse.IsSuccessStatusCode)
-            {
-                var result = JsonSerializer.Deserialize<ChromaQueryResponse>(responseContent);
-
-                // Verificar se encontrou documentos com nosso batch_id
-                var hasDocuments = result?.Metadatas?.Any() == true && result.Metadatas[0]?.Any() == true;
-
-                if (hasDocuments)
-                {
-                    var documentsWithBatch = result.Metadatas[0]
-                        .Count(metadata => metadata.BatchId == batchId);
-
-                    _logger.LogInformation("✅ Encontrados {Count} documentos indexados do batch {BatchId}",
-                        documentsWithBatch, batchId);
-
-                    return documentsWithBatch > 0;
-                }
-            }
-
-            _logger.LogWarning("⚠️ Nenhum documento encontrado para batch {BatchId}", batchId);
-            return false;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "❌ Erro ao verificar documentos do batch {BatchId}", batchId);
-            return true; // Assumir sucesso em caso de erro na verificação
-        }
-    }
-
 
     /// <summary>
-    ///     🔥 MÉTODO ALTERNATIVO - BUSCAR TODOS OS DOCUMENTOS E CONTAR
+    ///     🔥 BUSCAR TODOS OS DOCUMENTOS E CONTAR
     /// </summary>
     private async Task<bool> VerifyDocumentsByCountAsync(string collectionUuid, int expectedCount)
     {
@@ -961,29 +779,33 @@ public class ChromaService : IChromaService
             if (queryEmbedding.Length == 0) return true; // Assumir sucesso se não conseguir verificar
 
             // Buscar TODOS os documentos da coleção
-            var queryPayload = new
+            var queryPayload = new QueryRequestPayload
             {
-                query_embeddings = new[] { queryEmbedding },
-                n_results = 1000, // Número alto para pegar todos
-                include = new[] { "metadatas" }
+                QueryEmbeddings = new[] { queryEmbedding.ToList() }.ToList(),
+                NResults = 1000, // Número alto para pegar todos
+                Includes = new[] { Include.Metadatas }.ToList()
             };
 
-            var queryContent = new StringContent(
-                JsonSerializer.Serialize(queryPayload),
-                Encoding.UTF8,
-                "application/json"
-            );
+            // var queryContent = new StringContent(
+            //     JsonSerializer.Serialize(queryPayload),
+            //     Encoding.UTF8,
+            //     "application/json"
+            // );
+            //
+            // var queryEndpoint =
+            //     $"/api/v2/tenants/{TENANT_NAME}/databases/{DATABASE_NAME}/collections/{collectionUuid}/query";
+            // var queryResponse = await _httpClient.PostAsync(queryEndpoint, queryContent);
 
-            var queryEndpoint =
-                $"/api/v2/tenants/{TENANT_NAME}/databases/{DATABASE_NAME}/collections/{collectionUuid}/query";
-            var queryResponse = await _httpClient.PostAsync(queryEndpoint, queryContent);
+            var queryResponse =
+                await _apiClient.QueryCollectionAsync(TENANT_NAME, DATABASE_NAME, collectionUuid, queryPayload);
 
-            if (queryResponse.IsSuccessStatusCode)
+            if (queryResponse.IsSuccess)
             {
-                var responseContent = await queryResponse.Content.ReadAsStringAsync();
-                var result = JsonSerializer.Deserialize<ChromaQueryResponse>(responseContent);
+                // var responseContent = await queryResponse.Content.ReadAsStringAsync();
+                // var result = JsonSerializer.Deserialize<ChromaQueryResponse>(responseContent);
 
-                var actualCount = result?.Metadatas?.Count ?? 0;
+                //var actualCount = result?.Metadatas?.Count ?? 0;
+                var actualCount = queryResponse.Data?.Metadatas?.Count ?? 0;
 
                 _logger.LogInformation("📊 Documentos na coleção: {Actual} (esperado: {Expected})",
                     actualCount, expectedCount);
@@ -998,69 +820,6 @@ public class ChromaService : IChromaService
             _logger.LogError(ex, "❌ Erro ao verificar contagem de documentos");
             return true;
         }
-    }
-
-    private async Task EnsureTenantAndDatabaseExist()
-    {
-        try
-        {
-            _logger.LogInformation("🔧 [API v2] Verificando tenant/database...");
-
-            // Método 1: Tentar listar databases para verificar se existe
-            var checkResponse = await _httpClient.GetAsync($"/api/v2/tenants/{TENANT_NAME}/databases");
-
-            if (checkResponse.IsSuccessStatusCode)
-            {
-                var content = await checkResponse.Content.ReadAsStringAsync();
-                _logger.LogInformation("✅ [API v2] Tenant/Database OK: {Response}", content);
-                return;
-            }
-
-            // Método 2: Se falhou, tentar criar (alguns setups precisam disso)
-            _logger.LogWarning("⚠️ [API v2] Tentando criar estrutura tenant/database...");
-
-            // Payload mínimo para criação
-            var payload = new { name = DATABASE_NAME };
-            var jsonContent = JsonSerializer.Serialize(payload);
-            var content2 = new StringContent(jsonContent, Encoding.UTF8, "application/json");
-
-            var createResponse = await _httpClient.PostAsync($"/api/v2/tenants/{TENANT_NAME}/databases", content2);
-            var createContent = await createResponse.Content.ReadAsStringAsync();
-
-            _logger.LogInformation("🔧 [API v2] Resultado criação database: {StatusCode} - {Content}",
-                createResponse.StatusCode, createContent);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning("⚠️ [API v2] Erro ao verificar/criar tenant/database: {Error}", ex.Message);
-            // Não falhar aqui - alguns setups podem não precisar desta etapa
-        }
-    }
-
-    /// <summary>
-    ///     Obtém ou gera um UUID v4 para o nome da coleção
-    /// </summary>
-    private string GetCollectionUuid(string collectionName)
-    {
-        // Se já temos um UUID mapeado para esta coleção, retornar
-        if (_collectionUuidMap.TryGetValue(collectionName, out var existingUuid)) return existingUuid;
-
-        // Gerar novo UUID v4
-        var newUuid = Guid.NewGuid().ToString();
-        _collectionUuidMap[collectionName] = newUuid;
-
-        _logger.LogInformation("🔑 Mapeamento coleção: {CollectionName} -> UUID: {Uuid}",
-            collectionName, newUuid);
-
-        return newUuid;
-    }
-
-    /// <summary>
-    ///     Gera um UUID v4 válido para documento
-    /// </summary>
-    private string GenerateDocumentUuid()
-    {
-        return Guid.NewGuid().ToString();
     }
 }
 
