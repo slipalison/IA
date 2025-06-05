@@ -41,7 +41,7 @@ public class OllamaController : ControllerBase
     }
 
     [HttpPost("chat")]
-    public async Task<IActionResult> Chat([FromBody] ChatRequest request)
+    public async Task<IActionResult> Chat([FromBody] ChatRequest2 request)
     {
         try
         {
@@ -97,7 +97,7 @@ IMPORTANTE: Sempre responda em português, mesmo que a pergunta seja em outro id
     }
 }
 
-public class ChatRequest
+public class ChatRequest2
 {
     public string Message { get; set; } = string.Empty;
     public string? Model { get; set; }

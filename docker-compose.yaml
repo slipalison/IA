@@ -99,7 +99,7 @@
     image: grafana/grafana:latest
     container_name: devops-grafana
     ports:
-      - "3000:3000"
+      - "3030:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin123}
       - GF_SECURITY_ADMIN_USER=admin
@@ -109,13 +109,78 @@
     networks:
       - devops-network
     restart: unless-stopped
+  
+  chatbot-ui:
+    image: ghcr.io/mckaywrigley/chatbot-ui:main
+    container_name: devops-chatbot-ui
+    ports:
+      - "3000:3000"
+    environment:
+      # 🔧 Configurações básicas
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=devops-gpt-secret-key-super-secure-2024
+
+      # 🌐 API Configuration - Apontar para sua API .NET
+      - OPENAI_API_HOST=http://ia:8080
+      - OPENAI_API_KEY=dummy-key-not-needed
+      - DEFAULT_MODEL=devops-gpt
+
+      # 🎨 Customizações
+      - DEFAULT_SYSTEM_PROMPT=Você é o DevOpsGPT, um assistente especializado em DevOps que sempre responde em português brasileiro. Suas especialidades incluem Docker, Kubernetes, CI/CD, monitoramento, cloud computing e automação de infraestrutura.
+      - DEFAULT_TEMPERATURE=0.7
+
+      # 💾 Banco de dados local
+      - DATABASE_URL=file:/app/data/chatbot.db
+
+      # 🔒 Desabilitar autenticação para desenvolvimento
+      - DISABLE_AUTH=true
+
+    volumes:
+      - chatbot_data:/app/data
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    restart: unless-stopped
+    networks:
+      - devops-network
+
+    # ✅ Health check para garantir que está funcionando
+    healthcheck:
+      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  ia:
+    image: ia
+    build:
+      context: .
+      dockerfile: IA.WebApi/Dockerfile
+    environment:
+      - CHROMA_URL=http://devops-chroma:8000
+      - OLLAMA_URL=http://devops-ollama:11434
+    ports:
+      - "5000:8080"
+    networks:
+      - devops-network
 
 volumes:
-  chroma_data:
-  ollama_data:
-  redis_data:
   postgres_data:
+    driver: local
+  redis_data:
+    driver: local
   grafana_data:
+    driver: local
+  ollama_data:
+    driver: local
+  chroma_data:
+    driver: local
+  chatbot_data:
+    driver: local
+
+
 
 networks:
   devops-network:

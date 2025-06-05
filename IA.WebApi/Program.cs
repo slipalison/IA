@@ -2,6 +2,8 @@ using System.Net.Sockets;
 using System.Text.Json;
 using ChromaDb;
 using DotNetEnv;
+using IA.WebApi.Controllers.Chat;
+using IA.WebApi.Middleware;
 using IA.WebApi.Services;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -135,15 +137,21 @@ public class Program
 
     private static void ConfigureServices(IServiceCollection services, IConfiguration configuration)
     {
-        services.AddScoped<IChromaService, ChromaService>();
-        services.AddScoped<IEmbeddingService, OllamaEmbeddingService>();
-        services.AddHttpClient<IChromaApiClient, ChromaApiClient>(x =>
-            x.BaseAddress = new Uri("http://localhost:8000"));
-
-
         // Obter URLs dos serviços (das variáveis de ambiente)
         var ollamaUrl = Environment.GetEnvironmentVariable("OLLAMA_URL") ?? "http://localhost:11434";
         var chromaUrl = Environment.GetEnvironmentVariable("CHROMA_URL") ?? "http://localhost:8000";
+        services.AddScoped<IChromaService, ChromaService>();
+        services.AddScoped<IEmbeddingService, OllamaEmbeddingService>();
+        services.AddHttpClient<IChromaApiClient, ChromaApiClient>(x =>
+            x.BaseAddress = new Uri(chromaUrl));
+
+        services.AddScoped<IChatService, ChatService>();
+        services.AddScoped<IContextualResponseGenerator, ContextualResponseGenerator>();
+        services.AddScoped<IRelevantDocumentRetriever, RelevantDocumentRetriever>();
+        services.AddScoped<IPromptBuilder, PromptBuilder>();
+        services.AddScoped<IResponseCleaner, ResponseCleaner>();
+        services.AddScoped<IChatHistoryService, ChatHistoryService>();
+
 
         Log.Information("🔧 Configurando serviços...");
         Log.Information("  🤖 Ollama: {OllamaUrl}", ollamaUrl);
@@ -290,6 +298,8 @@ public class Program
         app.UseCors();
         app.UseRouting();
         app.MapControllers();
+        app.UseMiddleware<OpenAICompatibilityMiddleware>();
+
 
         // 🏥 Health check BÁSICO
         app.MapHealthChecks("/health");

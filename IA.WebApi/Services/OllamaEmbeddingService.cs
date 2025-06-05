@@ -99,7 +99,7 @@ public class OllamaEmbeddingService : IEmbeddingService
                 embeddings.Add(embedding);
 
                 // Pausa entre requests
-                await Task.Delay(500);
+                // await Task.Delay(500);
             }
 
             _logger.LogInformation("✅ Todos os {Count} embeddings gerados!", embeddings.Count);
